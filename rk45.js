@@ -1,8 +1,6 @@
-var x = Math.abs(-2);
+var debug = require('debug')('rk45');
 
-console.log(x);
-
-var System = function() {
+exports.System = function() {
     this.x0 = null;         // Array of initial conditions.
     this.fn = null;         // Array of functions to solve.
     this.newX = null;       // Array of solved values.
@@ -12,9 +10,10 @@ var System = function() {
     this.stop = 1.0;        // Integration end time.
     this.R = null;          // Array for error calculations.
     this.delta = null;      // Array for step adjustment.
+    this.count = 0;         // Count of how many steps of integration were done.
 }
 
-System.prototype = {
+exports.System.prototype = {
 
     // Set initial conditions.
     setInitX:   function( initX ) { return this.x0 = initX; },
@@ -84,7 +83,6 @@ System.prototype = {
 
         var dimension = this.x0.length;         // Dimension or order of the system.
         var t = this.start;                     // Time variable.
-        var count = 0;                          // Loop counter.
         var maxCount = 256;                     // Watchdog value on loop counter, not to exceed.
 
         this.newX = new Array( dimension );
@@ -92,17 +90,19 @@ System.prototype = {
         this.R = new Array( dimension );
         this.delta = new Array( dimension );
 
+        this.count = 0;                         // Set loop counter to zero.
+
         while (t < this.stop) {
 
-            console.log("t: "+t+", newX: "+this.newX);
+            debug("t: "+t+", newX: "+this.newX);
             
             // Compute the 'k' coefficients.
             var k = this.computeK(t);
 
             for (var i=0; i<k.length; i++) {
-                console.log("k["+i+"]: "+k[i]);
+                debug("k["+i+"]: "+k[i]);
 //                for (var j=0; j<k[i].length; j++)
-//                   console.log("k["+i+"]["+j+"]: "+k[i][j]);
+//                   debug("k["+i+"]["+j+"]: "+k[i][j]);
             }
             
             // Compute error estimates and
@@ -114,10 +114,10 @@ System.prototype = {
                 this.delta[i] = 0.84*Math.pow((this.tol/this.R[i]),0.25);
             }
             
-            console.log("delta: " + this.delta + "; min: " + Math.min.apply(null, this.delta));
+            debug("delta: " + this.delta + "; min: " + Math.min.apply(null, this.delta));
 
             if (Math.max.apply(null,this.R) <= this.tol)  {
-                console.log("Good to compute!");
+                debug("Good to compute!");
                 t = t + this.h;
                 for (var i=0; i<dimension; i++) {
                     this.newX[i] = this.newX[i] + (25.0*k[i][0]/216.0 + 1408.0*k[i][2]/2565.0 + 2197.0*k[i][3]/4104.0 - k[i][4]/5.0);
@@ -125,38 +125,22 @@ System.prototype = {
                 this.h = this.h * Math.min.apply(null, this.delta);
             }
             else {
-                console.log("Need to adjust step size, max R: "+Math.max.apply(null,this.R));
-                console.log("Scale factor: "+Math.min.apply(null, this.delta));
+                debug("Need to adjust step size, max R: "+Math.max.apply(null,this.R));
+                debug("Scale factor: "+Math.min.apply(null, this.delta));
                 this.h = this.h * Math.min.apply(null, this.delta);
             }
             
     		if (this.h >= (this.stop - t))
 			    this.h = this.stop - t;
 		    
-		    if (count++ > maxCount)
+		    if (this.count++ > maxCount)
 			    break;
         }
+        
     }
         
 }
-
-// The 'K' coefficients 
-
-var Kmatrix = function() {
-    this.k1 = null;
-    this.k2 = null;
-    this.k3 = null;
-    this.k4 = null;
-    this.k5 = null;
-    this.k6 = null;
-}
-
-Kmatrix.prototype = {
-
-    compute: function() {
-    },
-}
-
+/*
 var diffEqX0 = function( time, x ) {
 
     return (x[0]-time*time+1);
@@ -179,7 +163,7 @@ foo.setFn( fn );
 foo.setStart( 0.0 );
 foo.setStop( 2.0 );
 foo.solve();
-console.log(foo.newX);
+debug(foo.newX);
 
-
+*/
 
