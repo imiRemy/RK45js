@@ -1,3 +1,42 @@
+// -------------------------------------------------------------------------------
+// RK45js : A JavaScript implementation of the Runge-Kutta-Fehlberg method.
+//
+// The Runge-Kutta-Fehlberg method (RK45 method) is a numerical integration
+// routine for solving systems of differential equations.  RK45 differs from
+// the normal Runge-Kutta algorithm by featuring an adapative step size. As
+// the integration proceeds, if the step size is too big (i.e. produces an
+// error larger than a set value) then the step size is decreased until the
+// error is within an acceptable value.  Conversely, if the error is much
+// smaller than the tolerance, the step size is increased to improve computational
+// efficiency.
+//
+// This implementation is written in JavaScript and is based loosely off an
+// older C version I wrote some time ago.
+//
+// Features:
+//      - Computational solver can be instantiated as an object.
+//      - No fixed limit to the order (size) of the system that can be solved.
+//      - Sanity checking built-in prior to starting computation.
+//      - Unit test suite (Mocha + Chai) for testing your installation.
+//
+// Getting Started:
+// At the most basic level, you need to do the following:
+//      - Instantiate a solver
+//      - Define the derivative function(s) you are solving
+//      - Set the intial conditions
+//      - Specify the start and stop values in the independent variable; e.g. time.
+//      - Call the solver.
+//      - Read out your answer!
+//
+// See the "rk45_sample.js" file for an example of getting started with a one
+// degree of freedom (first order) system.
+//
+// Remy Malan
+// February 2017
+//
+// License: MIT
+// -------------------------------------------------------------------------------
+
 var debug = require('debug')('rk45');
 
 exports.System = function() {
@@ -11,7 +50,7 @@ exports.System = function() {
     this.R = null;          // Array for error calculations.
     this.delta = null;      // Array for step adjustment.
     this.count = 0;         // Count of how many steps of integration were done.
-    this.maxCount = 256;    // Watchdog value for integration loop counter.
+    this.maxCount = 2048;   // Watchdog value for integration loop counter.
     this.status =           // Error / success status.
         {success: false,    // True if solved correctly, false otherwise.
          state: 'init',     // Label of state of solver: 'init', 'solve', 'complete', 'error'
@@ -28,10 +67,10 @@ exports.System.prototype = {
     setH:       function( h ) { return this.h = h; },
     setTol:     function( tol ) { return this.tol = tol; },
     setMaxCount:function( maxCount ) { return this.maxCount = maxCount; },
-    setStatus:  function( status ) {
-        // Scan for properties and set.
-    },
 
+    // Get status.
+    getStatus:  function() { return this.status; },
+    
     // Check that "obvious" issues are not present before trying to solve.
     checkSetUp: function() {
         if (this.start >= this.stop) {
@@ -45,6 +84,14 @@ exports.System.prototype = {
         if (this.x0.length != this.fn.length) {
             this.status.state = 'error';
             this.status.message = 'Dimension of initial conditions not the same as dimension of functions.';
+            return( this.status.state );
+        }
+        if (this.h <= 0) {
+            this.status.state = 'error';
+            if (this.h == 0.0)
+                this.status.message = 'h is zero but must be a positive number.';
+            else
+                this.status.message = 'h is less than zero but must be a positive number.';
             return( this.status.state );
         }
         return( 'ok' );
@@ -169,7 +216,7 @@ exports.System.prototype = {
 			}
         }
         
-        // Check why loop completed.
+        // Check why loop stopped.
  
  		if (this.count++ > this.maxCount) {
 		    this.status.success = false;
@@ -184,30 +231,4 @@ exports.System.prototype = {
     }
         
 }
-/*
-var diffEqX0 = function( time, x ) {
-
-    return (x[0]-time*time+1);
-}
-
-//var diffEqX1 = function( time, x ) {
-//
-//    return ( -9.81 * Math.sin( x[0] ));
-//}
-
-//var fn = [ diffEqX0, diffEqX1 ];
-var fn = [ diffEqX0 ];
-
-var foo = new System();
-//var startX = [0.2,0.0];
-var startX = [0.5];
-
-foo.setInitX( startX );
-foo.setFn( fn );
-foo.setStart( 0.0 );
-foo.setStop( 2.0 );
-foo.solve();
-debug(foo.newX);
-
-*/
 
