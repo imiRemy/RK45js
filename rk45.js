@@ -11,6 +11,11 @@ exports.System = function() {
     this.R = null;          // Array for error calculations.
     this.delta = null;      // Array for step adjustment.
     this.count = 0;         // Count of how many steps of integration were done.
+    this.maxCount = 256;    // Watchdog value for integration loop counter.
+    this.status =           // Error / success status.
+        {success: false,    // True if solved correctly, false otherwise.
+         state: 'init',     // Label of state of solver: 'init', 'solve', 'complete', 'error'
+         message: null};    // More detailed info.
 }
 
 exports.System.prototype = {
@@ -22,7 +27,29 @@ exports.System.prototype = {
     setStop:    function( stop_time ) { return this.stop = stop_time; },
     setH:       function( h ) { return this.h = h; },
     setTol:     function( tol ) { return this.tol = tol; },
+    setMaxCount:function( maxCount ) { return this.maxCount = maxCount; },
+    setStatus:  function( status ) {
+        // Scan for properties and set.
+    },
 
+    // Check that "obvious" issues are not present before trying to solve.
+    checkSetUp: function() {
+        if (this.start >= this.stop) {
+            this.status.state = 'error';
+            if (this.start == this.stop)
+                this.status.message = 'Stop time same as start time.';
+            else
+                this.status.message = 'Stop time is less than start time.';
+            return( this.status.state );
+        }
+        if (this.x0.length != this.fn.length) {
+            this.status.state = 'error';
+            this.status.message = 'Dimension of initial conditions not the same as dimension of functions.';
+            return( this.status.state );
+        }
+        return( 'ok' );
+    },
+ 
     // Compute 'k' coefficients, k1 - k6.
     computeK:   function(t) {
         var t_new = t;
@@ -81,9 +108,13 @@ exports.System.prototype = {
     // Run computation loop.
     solve:      function() {
 
+        // Check for inconsistencies in user inputs.
+        if (this.checkSetUp() != 'ok') {
+            return;
+        }
+
         var dimension = this.x0.length;         // Dimension or order of the system.
         var t = this.start;                     // Time variable.
-        var maxCount = 256;                     // Watchdog value on loop counter, not to exceed.
 
         this.newX = new Array( dimension );
         this.newX = this.x0                     // Output is set to initial values.
@@ -133,10 +164,23 @@ exports.System.prototype = {
     		if (this.h >= (this.stop - t))
 			    this.h = this.stop - t;
 		    
-		    if (this.count++ > maxCount)
+		    if (this.count++ > this.maxCount) {
 			    break;
+			}
         }
         
+        // Check why loop completed.
+ 
+ 		if (this.count++ > this.maxCount) {
+		    this.status.success = false;
+		    this.status.state = 'error';
+		    this.status.message = 'Iteration count exceeded MAX count (' + this.maxCount + ')';
+        }
+        else if (t >= this.stop) {
+		    this.status.success = true;
+		    this.status.state = 'complete';
+		    this.status.message = 'Integration completed sucessfully.';
+        }  
     }
         
 }
